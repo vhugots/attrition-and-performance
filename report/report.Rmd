@@ -1,0 +1,297 @@
+---
+title: "An Approach to Attrition and Performance Prediction"
+author: "Victor Tapia"
+date: "5/6/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source('../code.R')
+```
+
+---
+references:
+- id: IBMData
+  title: 'SAMPLE DATA: HR Employee Attrition and Performance'
+  author:
+  - family: Stacker IV
+    given: McKinley
+  URL: 'https://www.ibm.com/communities/analytics/watson-analytics-blog/hr-employee-attrition/'
+  type: article
+  issued:
+    year: 2015
+    month: 9
+- id: dailyPay18
+  title: What is the Difference Between Employee Turnover and Employee Attrition?
+  author:
+  - family: Pawlewicz
+    given: Paul
+  URL: 'https://business.dailypay.com/blog/employee-turnover-vs-attrition'
+  type: article
+  issued:
+    year: 2018
+    month: 8
+- id: GomesBitt15
+  title: 'Organizational Commitment, Psychological Contract Fulfillment and Job Performance: A Longitudinal Quanti-qualitative Study'
+  author:
+  - family: Gomes Maia
+    given: Leticia
+  - family: Bittencourt Bastos
+    given: Antonio Virgilio
+  container-title: BAR - Brazilian Administration Review
+  volume: 12
+  issue: 3
+  page: 250-267
+  url: 'http://www.redalyc.org/articulo.oa?id=84142182003'
+  publisher: Associação Nacional de Pós-Graduação e Pesquisa em Administração
+  type: article-journal
+  issued:
+    year: 2015
+    month: 7
+- id: Campbell17
+  title: "We've Broken Down Your Entire Life Into Years Spent Doing Tasks"
+  author:
+  - family: Campbell
+    given: Leigh
+  URL: 'https://www.huffingtonpost.com.au/2017/10/18/weve-broken-down-your-entire-life-into-years-spent-doing-tasks_a_23248153/'
+  type: article
+  container-title: Huffington Post Australia
+  issued:
+    year: 2017
+    month: 10
+- id: Belli18
+  title: "Here's How Many Years You'll Spend at Work in Your LifeTime"
+  author:
+  - family: Belli
+    given: Gina
+  URL: 'https://www.payscale.com/career-news/2018/10/heres-how-many-years-youll-spend-work-in-your-lifetime'
+  type: article
+  container-title: Pay Scale
+  issued:
+    year: 2018
+    month: 10
+- id: Makikangas13
+  title: 'Engaged Managers are not Workaholics: Evidence from a Longitudinal Person-Centered Analysis'
+  author:
+  - family: Mäkikangas
+    given: Anne
+  - family: Schaufeli
+    given: Wilmar
+  - family: Tolvanen
+    given: Asko
+  - family: Feldt
+    given: Taru
+  container-title: Journal of Work and Organizational Psychology
+  volume: 29
+  issue: 3
+  page: 135-143
+  doi: 'https://doi.org/10.5093/tr2013a19'
+  url: 'https://journals.copmadrid.org/jwop/art/tr2013a19'
+  publisher: Colegio Oficial de Psicólogos de Madrid
+  type: article-journal
+  issued:
+    year: 2013
+    month: 9
+---
+
+## Introduction
+
+Working is the activity that most people will do most of their lives. With a working day of 8-9 hours on average and between 45 to 50 productive years, an average people will spend around 13 years working and 26 years in bed [@Campbell17].
+
+Given the amount of time every person will spend working, it's important to feel engaged. Schaufeli et al [2002, cited by @Makikangas13]
+
+An important factor to consider is the organizational commitment that can be defined as a linkage, bond, or attachment of an individual to an organization [Klein, Molloy & Cooper, 2009, cited by @GomesBitt15]. They proposed a three-component model: affective, normative and continuance.
+
+The affective component, highlights the emotional linkage between person and an organization. The normative component means that the link is based on a felling of obligation while the continuance component is due there is no other choice [Bastos et al, 2014, cited by @GomesBitt15].
+
+But the flip side of the coin, on average, workers will change job every 4.2 years, workers in management, professional and other related occupations every 5.0 years while workers in service has the lowest tenure with 2.9 years [@Belli18].
+
+About work change, employee turnover and attrition are two different types of employee churn and both of them are commonly used as synonym [@dailyPay18].
+
+Even though both of them decrease the number of employees on staff, attrition is tipically voluntary or natural, like retirement or resignation, while turnover can be either voluntary resign or involuntary termination or discharge [@dailyPay18].
+
+The dataset SAMPLE DATA: HR Employee Attrition and Performance [@IBMData] will be used. This is a fictional dataset created by IBM for practice.
+
+For this project the following tasks will be performed:
+
+1. String variables will be converted into factors and boolean variables will be converted in numeric 1 or 0.
+2. The variables with zero variability will be removed as they doesn't add any value.
+3. Some plots will be reviewed in order to understand how the sample is built.
+4. Correlation analysis will be performed in order to drop the higher correlationed variables.
+5. The following methods will be used in order to get the best ensemble: glm, lda, naive_bayes, svmLinear, knn, rf, ranger, Rborist, gbm, xgbTree, svmRadial, svmRadialCost and svmRadialSigma.
+
+## Methodology
+
+This dataset consist of `r ncol(data)` variables and `r nrow(data)` observations randomly generated. After the preparations, some fields were renamed and factors were created. Some fields were also removed due to zero variability:
+
+```{r zeroVar, echo = FALSE}
+zeroVar
+```
+
+Before data partitioning, and cleansing the final dataset structure is as follows:
+
+```{r str, echo = FALSE}
+str(data[,-nearZeroVar(data)])
+```
+
+The first step is to start digging into the information, giving a quick look, we can see that the attrition rate is `r round(mean(data$attrition) * 100 ,2)`%. In the following plots we can see how the sample is distributed.
+
+```{r barPlots, echo = FALSE}
+grid.arrange(data %>% catPlot(., "attrition", "Attrition"),
+             data %>% catPlot(., "gender", "Gender"), 
+             catPlot(data, "maritalStatus", "Marital Status"), 
+             catPlot(data, "department", "Department"), 
+             catPlot(data, "travel", "Business Travel"), 
+             catPlot(data, "education", "Education Level"),
+             catPlot(data, "educationField", "Education Field"),
+             catPlot(data, "performance", "Performance"),
+             ncol = 2, 
+             top = "Fig 1. Distribution for most important categorical variables")
+```
+
+From the above plots we can notice the following:
+
+1. Attrition: This plot confirms the attrition rate calculated before. This is the variable to be predicted.
+2. Gender: The sample contains `r round(mean(ibm$gender) * 100, 2)`% of women and `r round((1 - mean(ibm$gender)) * 100, 2)`% of men.
+3. Marital Status: The mode for this variable is Married, it is almost the double of the less frequent marital status which is Divorced.
+4. Department: The sample contains only data from three departments: Research & Development (R&D), Sales and Human Resources (HR). The more frequent department is R&D (`r round(sum(ibm$department == "R&D") / nrow(ibm) * 100, 2)`%)
+5. Business Travel: Most of the employees travel rarely (`r round(sum(ibm$travel == "Travel_Rarely") / nrow(ibm) * 100, 2)`%)
+6. Education Level: The more frequent education level is Bachelor (`r round(sum(ibm$education == "Bachelor") / nrow(ibm) * 100, 2)`%) followed by Master (`r round(sum(ibm$education == "Master") / nrow(ibm) * 100, 2)`%).
+7. Education Field: Most of the employees studied a Life Science (`r round(sum(ibm$educationField == "Life Sci.") / nrow(ibm) * 100, 2)`%) followed by Medical (`r round(sum(ibm$educationField == "MD") / nrow(ibm) * 100, 2)`%)
+8. Performance: This sample contains only employees with Excellent (`r round(sum(ibm$performance == "Excellent") / nrow(ibm) * 100, 2)`%) and Outstanding performance (`r round(sum(ibm$performance == "Outstanding") / nrow(ibm) * 100, 2)`%).
+
+The dataset also includes some time-related variables like age, total years working and others. Below are the density plots for this variables.
+
+```{r densPlotsTime, echo = FALSE}
+grid.arrange(densPlot(data, "age", "Age"),
+             densPlot(data, "totalWkgYears", "Total Years Working"),
+             densPlot(data, "yearsAtCompany", "Years At Company"),
+             densPlot(data, "yearsInRole", "Years In Role"),
+             densPlot(data, "yearsSinceProm", "Years Since Promotion"),
+             densPlot(data, "yearsWithManager", "Years With Manager"),
+             ncol = 2, 
+             top = "Fig 2. Time-related density plots")
+```
+
+In this case, age seems to be the only normal distributed variable with an average age of `r round(mean(ibm$age), 2)` and a standard deviation of `r round(sd(ibm$age), 2)`. The older person is `r max(ibm$age)` years old, while the younger is `r min(ibm$age)`.
+
+Another interesting finding is that Total Years Working and Years At Company seems to be similarly distributed. While Years in Role and Years with Manager shows a almost identical distribution.
+
+There are other variables worth taking a look.
+
+```{r densPlots, echo = FALSE}
+grid.arrange(densPlot(data, "distHome", "Distance From Home"),
+             densPlot(data, "percentSalaryHike", "Percent Salary Hike"),
+             densPlot(data, "dailyRate", "Daily Rate"),
+             densPlot(data, "hourlyRate", "Hourly Rate"),
+             densPlot(data, "numCompaniesWorked", "Number of Companies Worked"),
+             densPlot(data, "monthlyIncome", "Monthly Income"),
+             ncol = 2, 
+             top = "Fig 3. Density plots")
+```
+
+Distance from Home and Percent Salary Hike seems to be a very high density at very low values. Daily Rate and Hourly rate seems to have a similar distribution and also the number of companies worked with the monthly income shows similarity.
+
+The next step is to lookup for correlated variables, the following plot shows this correlations:
+
+```{r correlation, echo = FALSE}
+corr <- data[,-nearZeroVar(data)]
+for(i in 1:ncol(corr)){
+  corr[,i]<- as.integer(corr[,i])
+}
+corrplot::corrplot(cor(corr), method = "square", type = "lower")
+```
+
+At first, the plot seems to be complicated to understand due the quantity of variables, but after removing those variables with low correlation, the new plot looks like this:
+
+```{r correlation2, echo = FALSE}
+corr <- data %>% transmute(age,
+                          jobLevel,
+                          maritalStatus,
+                          monthlyIncome,
+                          percentSalaryHike,
+                          performance,
+                          totalWkgYears,
+                          yearsAtCompany,
+                          yearsInRole,
+                          yearsSinceProm,
+                          yearsWithManager)
+for(i in 1:ncol(corr)){
+  corr[,i]<- as.integer(corr[,i])
+}
+corrplot::corrplot(cor(corr), method = "number", type = "lower")
+```
+
+The variables Performance and Percent Salary Hike seems to be correlated. Given that assumption, the variable Performance will be removed. Age will be also removed as it shows correlation with Monthly Income.
+
+The variable that seems to have more correlations with another variables is Job Level, specially Monthly Income, which is logical as the higher the position, the higher the income. These plots show those correlations:
+
+```{r corrJobLevel, echo = FALSE}
+suppressWarnings(suppressMessages(suppressPackageStartupMessages(grid.arrange(corVariables(data, "jobLevel", "monthlyIncome", "", "Monthly Income"),
+             corVariables(data, "jobLevel", "totalWkgYears", "", "Total Years Working"),
+             corVariables(data, "jobLevel", "yearsAtCompany", "", "Years at Company"),
+             corVariables(data, "jobLevel", "yearsInRole", "", "Years in Role"),
+             ncol = 2, 
+             top = "Fig 6. Strongest variables correlation and Job Level"
+))))
+```
+
+Monthly Income seems to be an almost perfect correlation while the another variables are less correlated. Based on this plots, the variable Job Level will be removed from dataset. Years at Company and Total Years Working will be analized later.
+
+
+The next variable to be reviewed is Years at Company, which seems to have correlation with another variables, here are the plots:
+
+```{r corrYearsAtCo, echo = FALSE}
+suppressWarnings(suppressMessages(suppressPackageStartupMessages(grid.arrange(corVariables(data, "yearsAtCompany", "yearsWithManager", "", "Years with Manager"),
+             corVariables(data, "yearsAtCompany", "yearsInRole", "", "Years in Role"),
+             corVariables(data, "yearsAtCompany", "totalWkgYears", "", "Total Years Working"),
+             corVariables(data, "yearsAtCompany", "yearsSinceProm", "", "Years Since Promotion"),
+             ncol = 2, 
+             top = "Fig 7. Strongest variables correlation and Years at Company"
+))))
+```
+
+The variables Years at Company, Years with Manager, Years in Role and Total Years Working will be also removed.
+
+The structure of the final dataset that will be partitioned is as follows:
+
+```{r finalDataset, echo = FALSE}
+str(ibm)
+```
+
+The training set will be partitioned to 80% of the sample (`r nrow(train)`) and test set to 20% (`r nrow(test)`). For the algorithm creation, the ensemble will be created using the following methods: glm, lda, naive_bayes, svmLinear, knn, rf, ranger, Rborist, gbm, xgbTree, svmRadial, svmRadialCost, monmlp, kknn, mlp, wsrf, pcaNNet and svmRadialSigma. The method adaboost was also tested, but discarded due after several attempts, the computer crashed.
+
+## Results
+
+After training, these are the acurracy values for each model:
+
+```{r preResults, echo = FALSE}
+data.frame(sort(acc, decreasing = TRUE)) %>% knitr::kable()
+```
+
+The average for each model in the test set and the mean accuracy across all models is `r round(all_acc * 100, 2)`%. After building the ensemble, the accuracy of the model is `r round(ens_acc * 100, 2)`%.
+
+After comparing this accuracy to each model, only `r s_ind` methods will be used. These models are the following:
+
+```{r models, echo = FALSE}
+m_ind %>% knitr::kable()
+```
+
+With this models, the new estimated accuracy is the following: `r round(ne_acc * 100, 2)`%.
+
+Given this results, only the above mentioned methods will be used for the ensemble. After applying this ensemble to the data, the final accuracy is `r round(final_acc * 100, 2)`%.
+
+## Conclusion
+
+An important part of managing work teams is to foster a working environment in which the people can develop their skills and have a strong sense of commitment. Attrition from the company's perspective can represent a high cost, but moreover, it can lead to a lowering in workplace morale, deterating of product or service quality, reduction in investment return, among others unwanted consequences.
+
+Using Data Sciences techniques can be useful in prediction of employee attrition and change the perspective from a reactive to a proactive one.
+
+I think that this kind of tools will become more frequent over the years to come and other applications will be implemented. Applications in problem solving like customer attrition, employee performance, burnout prevention and another will be developed.
+
+For this specific dataset, some algorithms seems to be performed better than the ensemble, however, this is due partition process and random sampling. It would be interesting to evaluate the algorithm using real data.
+
+## References
